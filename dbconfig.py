@@ -5,3 +5,7 @@ config = {
     'password': '46TdG4DNCW4SDNTH',
     'database': 'mitgliederportal'
 }
+
+pool_config = config | {
+    'pool_name': 'web-app'
+}

@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, abort
 from flask_cors import CORS
 import mariadb
 import dbconfig
@@ -9,14 +9,43 @@ from parts.user_service import UserService
 # Create flask app and connect to database
 app = Flask(__name__)
 CORS(app)
-conn = mariadb.connect(**dbconfig.config)
+pool = mariadb.ConnectionPool(**dbconfig.pool_config)
 
 # Create services
-user_service = UserService(conn)
+user_service = UserService(pool)
+
+
+# Authorizazion Wrapper ---------------------------------------------------------
+def authorizeAcces(roles=None, all=False):
+
+    def wrap_f(func):
+        def wrap(*args, **kwargs):
+
+            # Do Authorization
+            valid = True if roles is None else user_service.check_authorization(roles, request.headers, all)
+
+            # Return error or result
+            if valid:
+                return func(*args, **kwargs)
+            else:
+                abort(403)
+
+        wrap.__name__ = func.__name__
+        return wrap
+
+    return wrap_f
 
 
 # Routes ------------------------------------------------------------------------
+@app.route('/test')
+@authorizeAcces(["admin", "user"])
+def get_test():
+    print("Test")
+    return "Test"
+
+
 @app.route('/users')
+@authorizeAcces(["admin"])
 def get_all_users():
     return user_service.get_all_users()
 
